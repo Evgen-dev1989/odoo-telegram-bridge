@@ -3,7 +3,7 @@
     'version': '1.0',
     'category': 'Inventory/Warehouse',
     'summary': 'API endpoints and access rights for Telegram Bot integration',
-    'author': 'Your Name',
+    'author': 'Evgeny',
     'depends': ['stock'],  
     'data': [
   

@@ -13,4 +13,4 @@
     'license': 'LGPL-3',
 }
 
-#python odoo/odoo-bin -c odoo.conf -d odoo_test_db -i my_crm_extensionstart
+#python odoo/odoo-bin -c odoo.conf -d odoo_test_db -i telegram_bot

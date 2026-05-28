@@ -1,0 +1,6 @@
+<header>
+    <button name="action_regenerate_tg_token" 
+            string="Reset/Give Telegram Token" 
+            type="object" 
+            class="oe_highlight"/>
+</header>

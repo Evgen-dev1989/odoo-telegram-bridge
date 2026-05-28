@@ -66,3 +66,5 @@ class ServiceWorker(models.Model):
                 clean_phone = re.sub(r'\D', '', record.phone)
                 if len(clean_phone) < 10 or len(clean_phone) > 15:
                     raise ValidationError("The phone number must contain between 10 and 15 digits.")
+                
+

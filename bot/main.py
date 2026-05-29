@@ -1,13 +1,8 @@
 import asyncio
-import logging
-import xmlrpc.client
 from os import getenv
-from aiogram import Bot, Dispatcher, F
-from aiogram.filters import CommandStart, Command
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message
 from dotenv import load_dotenv
+
+from odoo_client import check_stock_async
 
 
 load_dotenv()
@@ -17,3 +12,10 @@ ODOO_URL = getenv("ODOO_URL")
 ODOO_DB = getenv("ODOO_DB")
 ODOO_USER = getenv("ODOO_USER")
 ODOO_PASSWORD = getenv("ODOO_PASSWORD")
+
+
+async def main():
+    await check_stock_async()
+
+if __name__ == "__main__":
+    asyncio.run(main())

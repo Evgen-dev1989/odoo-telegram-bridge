@@ -1,21 +1,31 @@
 import asyncio
+import logging
 from os import getenv
+from aiogram import Bot, Dispatcher
 from dotenv import load_dotenv
 
-#from odoo_client import check_stock_async
-
+from handlers import router, DBManager 
 
 load_dotenv()
 
 BOT_TOKEN = getenv("BOT_TOKEN")
-ODOO_URL = getenv("ODOO_URL")
-ODOO_DB = getenv("ODOO_DB")
-ODOO_USER = getenv("ODOO_USER")
-ODOO_PASSWORD = getenv("ODOO_PASSWORD")
-
+PG_URL = getenv("PG_URL")
 
 async def main():
-#    await check_stock_async()
+    logging.basicConfig(level=logging.INFO)
+    
+
+    bot = Bot(token=BOT_TOKEN)
+    dp = Dispatcher()
+    
+
+    db = DBManager(PG_URL)
+    
+    dp["db"] = db
+    
+    dp.include_router(router)
+    
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())

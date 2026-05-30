@@ -2,36 +2,39 @@ import asyncio
 import logging
 import xmlrpc.client
 from os import getenv
-from dotenv import load_dotenv
 
-
-load_dotenv()
-
-BOT_TOKEN = getenv("BOT_TOKEN")
 ODOO_URL = getenv("ODOO_URL")
 ODOO_DB = getenv("ODOO_DB")
 ODOO_USER = getenv("ODOO_USER")
 ODOO_PASSWORD = getenv("ODOO_PASSWORD")
 
+
+
+
 def _get_odoo_uid():
+
     common = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/common')
     return common.authenticate(ODOO_DB, ODOO_USER, ODOO_PASSWORD, {})
 
+
 def _check_stock_in_odoo(sku: str) -> dict:
+
     try:
         uid = _get_odoo_uid()
         models = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/object')
         
-        product_ids = models.execute_kw(
+        products = models.execute_kw(
             ODOO_DB, uid, ODOO_PASSWORD,
-            'product.product', 'search',
-            [[['default_code', '=', sku]]]
+            'product.product', 'search_read',
+            [[['default_code', '=', sku]]],
+            {'fields': ['display_name'], 'limit': 1}
         )
         
-        if not product_ids:
+        if not products:
             return {"status": "not_found"}
         
-        product_id = product_ids[0]
+        product_id = products[0]['id']
+        product_name = products[0]['display_name']
         
         quants = models.execute_kw(
             ODOO_DB, uid, ODOO_PASSWORD,
@@ -40,20 +43,19 @@ def _check_stock_in_odoo(sku: str) -> dict:
             {'fields': ['location_id', 'quantity']}
         )
         
-  
         stock_details = []
         total_qty = 0
         for q in quants:
             qty = q['quantity']
             if qty > 0:
-                stock_details.append(f"📍 {q['location_id'][1]}: {qty} шт.")
+                stock_details.append(f"📍 {q['location_id'][1]}: {qty} pcs.")
                 total_qty += qty
                 
         return {
             "status": "success",
-            "name": quants[0]['product_id'][1] if quants else "Товар найден",
+            "name": product_name,
             "total": total_qty,
-            "details": "\n".join(stock_details) if stock_details else "На складах пусто"
+            "details": "\n".join(stock_details) if stock_details else "All warehouses are empty"
         }
     except Exception as e:
         logging.error(f"Odoo Error: {e}")
@@ -63,3 +65,5 @@ def _check_stock_in_odoo(sku: str) -> dict:
 async def check_stock_async(sku: str) -> dict:
 
     return await asyncio.to_thread(_check_stock_in_odoo, sku)
+
+

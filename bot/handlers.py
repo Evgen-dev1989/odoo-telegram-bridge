@@ -1,82 +1,136 @@
-import logging
-import xmlrpc.client
-from os import getenv
-from aiogram import Bot, Dispatcher, F
+import psycopg  
+from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
-from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message
-from dotenv import load_dotenv
+from aiogram.fsm.context import FSMContext
+from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
-load_dotenv()
-from odoo_client import check_stock_async
+from odoo_client import check_stock_async 
 
-BOT_TOKEN = getenv("BOT_TOKEN")
-ODOO_URL = getenv("ODOO_URL")
-ODOO_DB = getenv("ODOO_DB")
-ODOO_USER = getenv("ODOO_USER")
-ODOO_PASSWORD = getenv("ODOO_PASSWORD")
+router = Router()
 
 
-AUTHORIZED_USERS = {}
+class DBManager:
+    def __init__(self, connection_url: str):
+        self.url = connection_url
 
-SECRET_BOT_TOKEN = "__password"
+    async def is_user_authorized(self, tg_id: int) -> bool:
+        async with await psycopg.AsyncConnection.connect(self.url) as conn:
+            async with conn.cursor() as cur:
+             
+                await cur.execute(
+                    "SELECT id FROM servise_worker WHERE telegram_chat_id = %s LIMIT 1;",
+                    (str(tg_id),)
+                )
+                result = await cur.fetchone()
+                return result is not None
 
-logging.basicConfig(level=logging.INFO)
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+    async def authorize_by_token(self, tg_id: int, token: str) -> bool:
+        async with await psycopg.AsyncConnection.connect(self.url) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT id FROM servise_worker WHERE telegram_auth_token = %s LIMIT 1;",
+                    (token,)
+                )
+                worker = await cur.fetchone()
+                
+                if worker:
+                    worker_id = worker[0]
+                    await cur.execute(
+                        """UPDATE servise_worker 
+                           SET telegram_chat_id = %s, telegram_auth_token = NULL 
+                           WHERE id = %s;""",
+                        (str(tg_id), worker_id)
+                    )
+                    await conn.commit() 
+                    return True
+                return False
+
+    async def authorize_by_phone(self, tg_id: int, phone: str) -> bool:
+        clean_phone = phone.replace("+", "").strip()
+        async with await psycopg.AsyncConnection.connect(self.url) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """SELECT id FROM servise_worker 
+                       WHERE phone = %s OR phone = %s LIMIT 1;""",
+                    (clean_phone, f"+{clean_phone}")
+                )
+                worker = await cur.fetchone()
+                
+                if worker:
+                    worker_id = worker[0]
+                    await cur.execute(
+                        "UPDATE servise_worker SET telegram_chat_id = %s WHERE id = %s;",
+                        (str(tg_id), worker_id)
+                    )
+                    await conn.commit()
+                    return True
+                return False
+
 
 class Form(StatesGroup):
-    waiting_for_token = State()
+    waiting_for_auth = State()
     main_menu = State()
     waiting_for_sku = State()
 
 
-
-@dp.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
-    if message.from_user.id in AUTHORIZED_USERS:
-        await message.answer("You have successfully logged in! Enter /stock to check inventory..")
+@router.message(CommandStart())
+async def cmd_start(message: Message, state: FSMContext, db: DBManager): 
+    is_auth = await db.is_user_authorized(message.from_user.id)
+    if is_auth:
+        await message.answer("Welcome back! Use /stock to check inventory.")
         await state.set_state(Form.main_menu)
     else:
-        await message.answer("Welcome. Access is restricted. Please enter your employee authorization token.:")
-        await state.set_state(Form.waiting_for_token)
+        phone_button = KeyboardButton(text="📱 Log in via Phone Number", request_contact=True)
+        keyboard = ReplyKeyboardMarkup(keyboard=[[phone_button]], resize_keyboard=True, one_time_keyboard=True)
+        await message.answer(
+            "Welcome! Access is restricted.\n\n"
+            "Please share your phone number using the button below, or enter your token:", 
+            reply_markup=keyboard
+        )
+        await state.set_state(Form.waiting_for_auth)
 
-@dp.message(Form.waiting_for_token)
-async def process_token(message: Message, state: FSMContext):
-    if message.text == SECRET_BOT_TOKEN:
-        AUTHORIZED_USERS[message.from_user.id] = True
-        await message.answer("Authorization successful! You can now check your inventory. Enter /stock.")
+
+@router.message(Form.waiting_for_auth, F.contact)
+async def process_contact_auth(message: Message, state: FSMContext, db: DBManager): 
+    phone = message.contact.phone_number
+    success = await db.authorize_by_phone(message.from_user.id, phone)
+    if success:
+        await message.answer("Access granted! Enter /stock.", reply_markup=ReplyKeyboardRemove())
         await state.set_state(Form.main_menu)
     else:
-        await message.answer("Invalid token. Access denied. Please try again or contact your administrator..")
+        await message.answer("❌ This phone number is not registered in Odoo. Try entering a token:")
 
-@dp.message(Command("stock"), Form.main_menu)
+
+@router.message(Form.waiting_for_auth, F.text)
+async def process_token_auth(message: Message, state: FSMContext, db: DBManager):
+    token = message.text.strip()
+    success = await db.authorize_by_token(message.from_user.id, token)
+    if success:
+        await message.answer("Token accepted! Enter /stock.", reply_markup=ReplyKeyboardRemove())
+        await state.set_state(Form.main_menu)
+    else:
+        await message.answer("❌ Invalid token. Please try again:")
+
+
+@router.message(Command("stock"), Form.main_menu)
 async def cmd_stock(message: Message, state: FSMContext):
-    await message.answer("Send the product SKU:")
+    await message.answer("Please send the product SKU:")
     await state.set_state(Form.waiting_for_sku)
 
-@dp.message(Form.waiting_for_sku)
+
+@router.message(Form.waiting_for_sku)
 async def process_sku(message: Message, state: FSMContext):
     sku = message.text.strip()
-    await message.answer(f"Looking for item number `{sku}` in Odoo... Please wait.")
-    
-    # Вызов Odoo без блокировки event loop
+    await message.answer(f"Looking for SKU `{sku}`...")
     result = await check_stock_async(sku)
     
     if result["status"] == "success":
-        response = (
-            f"📦 *{result['name']}*\n"
-            f"🔢 Article: {sku}\n"
-            f"📊 Total available: {result['total']} things.\n\n"
-            f"*Details by storage locations:*\n{result['details']}"
-        )
+        response = f"📦 *{result['name']}*\n📊 Total available: {result['total']} pcs.\n\n{result['details']}"
     elif result["status"] == "not_found":
-        response = f"❌ The product with the article number `{sku}` was not found in the Odoo system.."
+        response = f"❌ SKU `{sku}` not found."
     else:
-        response = "⚠️ Error connecting to Odoo. Admin notified."
+        response = "⚠️ Error connecting to Odoo API."
         
     await message.answer(response, parse_mode="Markdown")
-
     await state.set_state(Form.main_menu)
-    await message.answer("You can enter /stock again to check another product.")

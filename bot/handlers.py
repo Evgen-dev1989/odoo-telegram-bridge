@@ -39,10 +39,56 @@ class DBManager:
         finally:
             conn.close()
     
-    
+
+    async def authorize_by_token(self, tg_id: int, token: str) -> bool:
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id FROM servise_worker WHERE telegram_auth_token = %s LIMIT 1;",
+                    (token,)
+                )
+                worker = cur.fetchone()
+                
+                if worker:
+                    worker_id = worker[0]
+                    cur.execute(
+                        """UPDATE servise_worker 
+                           SET telegram_chat_id = %s, telegram_auth_token = NULL 
+                           WHERE id = %s;""",
+                        (str(tg_id), worker_id)
+                    )
+                    conn.commit() 
+                    return True
+                return False
+        finally:
+            conn.close()
 
 
+    async def authorize_by_phone(self, tg_id: int, phone: str) -> bool:
 
+        clean_phone = phone.replace("+", "").strip()
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT id FROM servise_worker 
+                       WHERE phone = %s OR phone = %s LIMIT 1;""",
+                    (clean_phone, f"+{clean_phone}")
+                )
+                worker = cur.fetchone()
+                
+                if worker:
+                    worker_id = worker[0]
+                    cur.execute(
+                        "UPDATE servise_worker SET telegram_chat_id = %s WHERE id = %s;",
+                        (str(tg_id), worker_id)
+                    )
+                    conn.commit()
+                    return True
+                return False
+        finally:
+            conn.close()
 
 
 

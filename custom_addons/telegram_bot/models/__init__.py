@@ -1,1 +1,1 @@
-from . import servise_worker
+from . import service_worker

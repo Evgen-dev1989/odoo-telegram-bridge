@@ -1,4 +1,5 @@
-import psycopg  
+import psycopg2  
+from psycopg2.extras import RealDictCursor
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
@@ -10,63 +11,21 @@ from odoo_client import check_stock_async
 router = Router()
 
 
+
 class DBManager:
     def __init__(self, connection_url: str):
         self.url = connection_url
 
-    async def is_user_authorized(self, tg_id: int) -> bool:
-        async with await psycopg.AsyncConnection.connect(self.url) as conn:
-            async with conn.cursor() as cur:
-             
-                await cur.execute(
-                    "SELECT id FROM servise_worker WHERE telegram_chat_id = %s LIMIT 1;",
-                    (str(tg_id),)
-                )
-                result = await cur.fetchone()
-                return result is not None
-
-    async def authorize_by_token(self, tg_id: int, token: str) -> bool:
-        async with await psycopg.AsyncConnection.connect(self.url) as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "SELECT id FROM servise_worker WHERE telegram_auth_token = %s LIMIT 1;",
-                    (token,)
-                )
-                worker = await cur.fetchone()
-                
-                if worker:
-                    worker_id = worker[0]
-                    await cur.execute(
-                        """UPDATE servise_worker 
-                           SET telegram_chat_id = %s, telegram_auth_token = NULL 
-                           WHERE id = %s;""",
-                        (str(tg_id), worker_id)
-                    )
-                    await conn.commit() 
-                    return True
-                return False
-
-    async def authorize_by_phone(self, tg_id: int, phone: str) -> bool:
-        clean_phone = phone.replace("+", "").strip()
-        async with await psycopg.AsyncConnection.connect(self.url) as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    """SELECT id FROM servise_worker 
-                       WHERE phone = %s OR phone = %s LIMIT 1;""",
-                    (clean_phone, f"+{clean_phone}")
-                )
-                worker = await cur.fetchone()
-                
-                if worker:
-                    worker_id = worker[0]
-                    await cur.execute(
-                        "UPDATE servise_worker SET telegram_chat_id = %s WHERE id = %s;",
-                        (str(tg_id), worker_id)
-                    )
-                    await conn.commit()
-                    return True
-                return False
-
+    def _get_connection(self):
+        
+        return psycopg2.connect(
+            host="127.0.0.1",
+            database="odoo_test_db",
+            user="openpg",
+            password="openpg",
+            port="5432"
+        )
+    
 
 class Form(StatesGroup):
     waiting_for_auth = State()

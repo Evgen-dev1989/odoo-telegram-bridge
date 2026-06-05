@@ -3,7 +3,6 @@ import logging
 from os import getenv
 from aiogram import Bot, Dispatcher
 from dotenv import load_dotenv
-import selectors
 
 from handlers import router, DBManager 
 

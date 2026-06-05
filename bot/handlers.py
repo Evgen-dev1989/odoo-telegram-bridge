@@ -1,15 +1,23 @@
 import psycopg2  
-from psycopg2.extras import RealDictCursor
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
-
+from os import getenv
 from odoo_client import check_stock_async 
 
 router = Router()
 
+BOT_TOKEN = getenv("BOT_TOKEN")
+PG_URL = getenv("PG_URL")
+
+
+host = getenv("host")
+database = getenv("database")
+user=getenv("user")
+password = getenv("password")
+port = getenv("port")
 
 
 class DBManager:
@@ -19,11 +27,11 @@ class DBManager:
     def _get_connection(self):
 
         return psycopg2.connect(
-            host="127.0.0.1",
-            database="odoo_test_db",
-            user="openpg",
-            password="openpg",
-            port="5432"
+            host=host,
+            database=database,
+            user=user,
+            password=password,
+            port=port
         )
     
     async def is_user_authorized(self, tg_id: int) -> bool:

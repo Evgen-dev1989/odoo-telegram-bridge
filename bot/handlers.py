@@ -17,7 +17,7 @@ class DBManager:
         self.url = connection_url
 
     def _get_connection(self):
-        
+
         return psycopg2.connect(
             host="127.0.0.1",
             database="odoo_test_db",
@@ -26,6 +26,25 @@ class DBManager:
             port="5432"
         )
     
+    async def is_user_authorized(self, tg_id: int) -> bool:
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id FROM servise_worker WHERE telegram_chat_id = %s LIMIT 1;",
+                    (str(tg_id),)
+                )
+                result = cur.fetchone()
+                return result is not None
+        finally:
+            conn.close()
+    
+    
+
+
+
+
+
 
 class Form(StatesGroup):
     waiting_for_auth = State()

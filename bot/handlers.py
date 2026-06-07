@@ -24,15 +24,6 @@ class DBManager:
     def __init__(self, connection_url: str):
         self.url = connection_url
 
-    # def _get_connection(self):
-
-    #     return psycopg2.connect(
-    #         host=host,
-    #         database=database,
-    #         user=user,
-    #         password=password,
-    #         port=port
-    #     )
     def _get_connection(self):
 
         clean_url = self.url.replace("localhost", "127.0.0.1")

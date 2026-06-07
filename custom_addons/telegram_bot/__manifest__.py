@@ -14,3 +14,4 @@
 }
 
 #python odoo/odoo-bin -c odoo.conf -d odoo_test_db -i telegram_bot
+

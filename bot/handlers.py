@@ -177,3 +177,25 @@ async def process_sku(message: Message, state: FSMContext):
         
     await message.answer(response, parse_mode="Markdown")
     await state.set_state(Form.main_menu)
+
+
+@router.message(Form.waiting_for_sku)  # или как у вас называется состояние FSM
+async def process_sku_handler(message: Message, state: FSMContext, db: DBManager):
+    sku = message.text
+    await message.answer(f"Looking for SKU `{sku}`...")
+    
+
+    product = await db.get_product_by_sku(sku)
+    
+    if product:
+        name, price = product
+        await message.answer(
+            f"📦 **Product Found!**\n\n"
+            f"🔹 **Name:** {name}\n"
+            f"🔹 **SKU:** {sku}\n"
+            f"🔹 **Price:** {price} USD"
+        )
+    else:
+        await message.answer(f"❌ Product with SKU `{sku}` not found in Odoo.")
+    
+    await state.clear()

@@ -93,6 +93,22 @@ class DBManager:
         finally:
             conn.close()
 
+    async def get_product_by_sku(self, sku: str):
+        clean_sku = str(sku).strip()
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT name, list_price 
+                       FROM product_template 
+                       WHERE default_code = %s AND active = true 
+                       LIMIT 1;""",
+                    (clean_sku,)
+                )
+                return cur.fetchone() 
+        finally:
+            conn.close()
+
 
 
 class Form(StatesGroup):

@@ -93,21 +93,21 @@ class DBManager:
         finally:
             conn.close()
 
-    async def get_product_by_sku(self, sku: str):
-        clean_sku = str(sku).strip()
+    def get_product_by_sku(self, sku: str):
         conn = self._get_connection()
         try:
             with conn.cursor() as cur:
                 cur.execute(
                     """SELECT name, list_price 
-                       FROM product_template 
-                       WHERE default_code = %s AND active = true 
-                       LIMIT 1;""",
-                    (clean_sku,)
+                    FROM product_template 
+                    WHERE TRIM(default_code) = %s AND active = true 
+                    LIMIT 1;""",
+                    (str(sku).strip(),) 
                 )
-                return cur.fetchone() 
+                return cur.fetchone()
         finally:
             conn.close()
+
 
 
 
@@ -162,40 +162,32 @@ async def cmd_stock(message: Message, state: FSMContext):
     await state.set_state(Form.waiting_for_sku)
 
 
-@router.message(Form.waiting_for_sku)
-async def process_sku(message: Message, state: FSMContext):
-    sku = message.text.strip()
-    await message.answer(f"Looking for SKU `{sku}`...")
-    result = await check_stock_async(sku)
+
+@router.message(Form.waiting_for_sku) 
+async def process_sku_handler(message: Message, db: DBManager):
+
+    sku= message.text.strip()
     
-    if result["status"] == "success":
-        response = f"📦 *{result['name']}*\n📊 Total available: {result['total']} pcs.\n\n{result['details']}"
-    elif result["status"] == "not_found":
-        response = f"❌ SKU `{sku}` not found."
-    else:
-        response = "⚠️ Error connecting to Odoo API."
+    if not sku:
+        await message.answer("Please send a valid SKU.")
+        return
+
+    await message.answer(f"Looking for SKU `{sku}`...")
+    
+    try:
+        product = db.get_product_by_sku(sku)
         
-    await message.answer(response, parse_mode="Markdown")
-    await state.set_state(Form.main_menu)
-
-
-@router.message(Form.waiting_for_sku)  # или как у вас называется состояние FSM
-async def process_sku_handler(message: Message, state: FSMContext, db: DBManager):
-    sku = message.text
-    await message.answer(f"Looking for SKU `{sku}`...")
-    
-
-    product = await db.get_product_by_sku(sku)
-    
-    if product:
-        name, price = product
-        await message.answer(
-            f"📦 **Product Found!**\n\n"
-            f"🔹 **Name:** {name}\n"
-            f"🔹 **SKU:** {sku}\n"
-            f"🔹 **Price:** {price} USD"
-        )
-    else:
-        await message.answer(f"❌ Product with SKU `{sku}` not found in Odoo.")
-    
-    await state.clear()
+        if product:
+            name, price = product
+            product_name = name.get('en_US', 'Unknown') if isinstance(name, dict) else name
+            await message.answer(
+                f"📦 **Product Found!**\n\n"
+                f"🔹 **Name:** {product_name}\n"
+                f"🔹 **SKU:** {sku}\n"
+                f"🔹 **Price:** {price} USD"
+            )
+        else:
+            await message.answer(f"❌ Product with SKU `{sku}` not found in Odoo.")
+            
+    except Exception as e:
+        await message.answer(f"⚠️ Database error: {str(e)}")

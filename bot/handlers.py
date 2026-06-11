@@ -162,32 +162,41 @@ async def cmd_stock(message: Message, state: FSMContext):
     await state.set_state(Form.waiting_for_sku)
 
 
-
 @router.message(Form.waiting_for_sku) 
-async def process_sku_handler(message: Message, db: DBManager):
-
-    sku= message.text.strip()
+async def process_sku_handler(message: Message):
+    sku = message.text.strip()
     
     if not sku:
         await message.answer("Please send a valid SKU.")
         return
 
-    await message.answer(f"Looking for SKU `{sku}`...")
+    await message.answer(f"Looking for SKU `{sku}` via Odoo API...")
     
-    try:
-        product = db.get_product_by_sku(sku)
+
+    result = await check_stock_async(sku)
+    
+    if result["status"] == "success":
+        name_raw = result["name"]
+        total_qty = result["total"]
+        details = result["details"]
         
-        if product:
-            name, price = product
-            product_name = name.get('en_US', 'Unknown') if isinstance(name, dict) else name
-            await message.answer(
-                f"📦 **Product Found!**\n\n"
-                f"🔹 **Name:** {product_name}\n"
-                f"🔹 **SKU:** {sku}\n"
-                f"🔹 **Price:** {price} USD"
-            )
+        if isinstance(name_raw, dict):
+            product_name = name_raw.get('en_US', 'Unknown Product')
         else:
-            await message.answer(f"❌ Product with SKU `{sku}` not found in Odoo.")
-            
-    except Exception as e:
-        await message.answer(f"⚠️ Database error: {str(e)}")
+            product_name = name_raw
+
+        display_qty = int(total_qty) if total_qty % 1 == 0 else total_qty
+
+        await message.answer(
+            f"📦 **Product Found via API!**\n\n"
+            f"🔹 **Name:** {product_name}\n"
+            f"🔹 **SKU:** {sku}\n"
+            f"🟢 **Total Stock:** {display_qty} pcs.\n\n"
+            f"🏢 **Warehouse Details:**\n{details}"
+        )
+        
+    elif result["status"] == "not_found":
+        await message.answer(f"❌ Product with SKU `{sku}` not found in Odoo.")
+        
+    else:
+        await message.answer(f"⚠️ Odoo API Error: {result.get('message', 'Unknown error')}")

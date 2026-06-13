@@ -9,19 +9,23 @@ ODOO_USER = getenv("ODOO_USER")
 ODOO_PASSWORD = getenv("ODOO_PASSWORD")
 
 
-
+def _get_odoo_url() -> str:
+    url = getenv("ODOO_URL", "http://127.0.0.1:8069")
+    url = url.replace('"', '').replace("'", "").strip()
+    if not url.startswith('http://') and not url.startswith('https://'):
+        url = f"http://{url}"
+    return url
 
 def _get_odoo_uid():
-
-    common = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/common')
+    clean_url = _get_odoo_url()
+    common = xmlrpc.client.ServerProxy(f'{clean_url}/xmlrpc/2/common',)
     return common.authenticate(ODOO_DB, ODOO_USER, ODOO_PASSWORD, {})
 
-
 def _check_stock_in_odoo(sku: str) -> dict:
-
     try:
         uid = _get_odoo_uid()
-        models = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/object')
+        clean_url = _get_odoo_url()
+        models = xmlrpc.client.ServerProxy(f'{clean_url}/xmlrpc/2/object')
         
         products = models.execute_kw(
             ODOO_DB, uid, ODOO_PASSWORD,
@@ -60,8 +64,7 @@ def _check_stock_in_odoo(sku: str) -> dict:
     except Exception as e:
         logging.error(f"Odoo Error: {e}")
         return {"status": "error", "message": str(e)}
-
-
+    
 async def check_stock_async(sku: str) -> dict:
 
     return await asyncio.to_thread(_check_stock_in_odoo, sku)

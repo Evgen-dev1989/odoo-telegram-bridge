@@ -15,3 +15,4 @@
 
 #python odoo/odoo-bin -c odoo.conf -d odoo_test_db -i telegram_bot
 
+#python odoo/odoo-bin -c odoo.conf --db_host=localhost --db_port=5432 --db_user=openpg --db_password=openpg -d odoo_test_db

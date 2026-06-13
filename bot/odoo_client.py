@@ -18,14 +18,19 @@ def _get_odoo_url() -> str:
 
 def _get_odoo_uid():
     clean_url = _get_odoo_url()
-    common = xmlrpc.client.ServerProxy(f'{clean_url}/xmlrpc/2/common',)
-    return common.authenticate(ODOO_DB, ODOO_USER, ODOO_PASSWORD, {})
+    common = xmlrpc.client.ServerProxy(f'{clean_url}/xmlrpc/2/common', allow_none=True)
+    uid = common.authenticate(ODOO_DB, ODOO_USER, ODOO_PASSWORD, {})
+    
+    if not uid:
+        raise ValueError("Incorect Odoo credentials (DB name, User or Password)")
+        
+    return uid
 
 def _check_stock_in_odoo(sku: str) -> dict:
     try:
         uid = _get_odoo_uid()
         clean_url = _get_odoo_url()
-        models = xmlrpc.client.ServerProxy(f'{clean_url}/xmlrpc/2/object')
+        models = xmlrpc.client.ServerProxy(f'{clean_url}/xmlrpc/2/object', allow_none=True)
         
         products = models.execute_kw(
             ODOO_DB, uid, ODOO_PASSWORD,

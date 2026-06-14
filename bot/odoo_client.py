@@ -32,35 +32,28 @@ def _check_stock_in_odoo(sku: str) -> dict:
             ODOO_DB, uid, ODOO_PASSWORD,
             'product.product', 'search_read',
             [[['default_code', '=', sku]]],
-            {'fields': ['display_name'], 'limit': 1}
+            {
+                'fields': [
+                    'display_name', 
+                    'qty_available',      
+                    'outgoing_qty',       
+                    'virtual_available'  
+                ], 
+                'limit': 1
+            }
         )
         
         if not products:
             return {"status": "not_found"}
         
-        product_id = products[0]['id']
-        product_name = products[0]['display_name']
+        product = products[0]
         
-        quants = models.execute_kw(
-            ODOO_DB, uid, ODOO_PASSWORD,
-            'stock.quant', 'search_read',
-            [[['product_id', '=', product_id], ['location_id.usage', '=', 'internal']]],
-            {'fields': ['location_id', 'quantity']}
-        )
-        
-        stock_details = []
-        total_qty = 0
-        for q in quants:
-            qty = q['quantity']
-            if qty > 0:
-                stock_details.append(f"📍 {q['location_id'][1]}: {qty} pcs.")
-                total_qty += qty
-                
         return {
             "status": "success",
-            "name": product_name,
-            "total": total_qty,
-            "details": "\n".join(stock_details) if stock_details else "All warehouses are empty"
+            "name": product['display_name'],
+            "on_hand": product['qty_available'],
+            "reserved": product['outgoing_qty'],
+            "forecasted": product['virtual_available']
         }
     except Exception as e:
         logging.error(f"Odoo Error: {e}")

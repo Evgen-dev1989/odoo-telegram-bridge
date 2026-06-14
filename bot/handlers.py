@@ -176,27 +176,30 @@ async def process_sku_handler(message: Message):
 
     await message.answer(f"Looking for SKU `{sku}` via Odoo API...")
     
-
     result = await check_stock_async(sku)
     
     if result["status"] == "success":
         name_raw = result["name"]
-        total_qty = result["total"]
-        details = result["details"]
         
         if isinstance(name_raw, dict):
             product_name = name_raw.get('en_US', 'Unknown Product')
         else:
             product_name = name_raw
 
-        display_qty = int(total_qty) if total_qty % 1 == 0 else total_qty
+        fmt = lambda x: int(x) if x % 1 == 0 else x
+        on_hand = fmt(result["on_hand"])
+        reserved = fmt(result["reserved"])
+        forecasted = fmt(result["forecasted"])
+        status_icon = "🟢" if forecasted > 0 else "🔴"
 
         await message.answer(
-            f"📦 **Product Found via API!**\n\n"
+            f"📦 **Product Info (Odoo API)**\n\n"
             f"🔹 **Name:** {product_name}\n"
-            f"🔹 **SKU:** {sku}\n"
-            f"🟢 **Total Stock:** {display_qty} pcs.\n\n"
-            f"🏢 **Warehouse Details:**\n{details}"
+            f"🔹 **SKU:** {sku}\n\n"
+            f"📊 **Stock Breakdown:**\n"
+            f"📦 **On Hand (physically available):** {on_hand} pcs.\n"
+            f"⏳ **Reserved:** {reserved} pcs.\n"
+            f"{status_icon} **Available:** {forecasted} pcs."
         )
         
     elif result["status"] == "not_found":

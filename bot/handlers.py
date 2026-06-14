@@ -25,6 +25,10 @@ class DBManager:
         self.url = connection_url
 
     def _get_connection(self):
+        if not getattr(self, 'url', None):
+            from os import getenv
+            raw_url = getenv("DATABASE_URL", "postgresql://openpg:openpg@127.0.0.1:5432/odoo_test_db")
+            self.url = str(raw_url).replace('"', '').strip()
 
         clean_url = self.url.replace("localhost", "127.0.0.1")
         return psycopg2.connect(clean_url)

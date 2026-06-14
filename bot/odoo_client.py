@@ -3,34 +3,30 @@ import logging
 import xmlrpc.client
 from os import getenv
 
-ODOO_URL = getenv("ODOO_URL")
-ODOO_DB = getenv("ODOO_DB")
-ODOO_USER = getenv("ODOO_USER")
-ODOO_PASSWORD = getenv("ODOO_PASSWORD")
+
+ODOO_URL = str(getenv("ODOO_URL", "http://127.0.0.1:8069")).replace('"', '').replace("'", "").strip()
+ODOO_DB = str(getenv("ODOO_DB", "odoo_test_db")).replace('"', '').replace("'", "").strip()
+ODOO_USER = str(getenv("ODOO_USER", "admin")).replace('"', '').replace("'", "").strip()
+ODOO_PASSWORD = str(getenv("ODOO_PASSWORD", "admin")).replace('"', '').replace("'", "").strip()
 
 
-def _get_odoo_url() -> str:
-    url = getenv("ODOO_URL", "http://127.0.0.1:8069")
-    url = url.replace('"', '').replace("'", "").strip()
-    if not url.startswith('http://') and not url.startswith('https://'):
-        url = f"http://{url}"
-    return url
+if not ODOO_URL.startswith('http://') and not ODOO_URL.startswith('https://'):
+    ODOO_URL = f"http://{ODOO_URL}"
+
 
 def _get_odoo_uid():
-    clean_url = _get_odoo_url()
-    common = xmlrpc.client.ServerProxy(f'{clean_url}/xmlrpc/2/common', allow_none=True)
+    common = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/common', allow_none=True)
     uid = common.authenticate(ODOO_DB, ODOO_USER, ODOO_PASSWORD, {})
     
     if not uid:
-        raise ValueError("Incorect Odoo credentials (DB name, User or Password)")
-        
+        raise ValueError("Incorrect Odoo credentials (DB name, User or Password)")
     return uid
+
 
 def _check_stock_in_odoo(sku: str) -> dict:
     try:
         uid = _get_odoo_uid()
-        clean_url = _get_odoo_url()
-        models = xmlrpc.client.ServerProxy(f'{clean_url}/xmlrpc/2/object', allow_none=True)
+        models = xmlrpc.client.ServerProxy(f'{ODOO_URL}/xmlrpc/2/object', allow_none=True)
         
         products = models.execute_kw(
             ODOO_DB, uid, ODOO_PASSWORD,
@@ -69,9 +65,7 @@ def _check_stock_in_odoo(sku: str) -> dict:
     except Exception as e:
         logging.error(f"Odoo Error: {e}")
         return {"status": "error", "message": str(e)}
-    
+
+
 async def check_stock_async(sku: str) -> dict:
-
     return await asyncio.to_thread(_check_stock_in_odoo, sku)
-
-

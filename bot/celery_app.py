@@ -21,7 +21,7 @@ app.conf.update(
 app.conf.beat_schedule = {
     "check-minimum-stock-every-morning": {
         "task": "bot.celery_app.check_stock_limits_task",
-        "schedule": crontab(hour=9, minute=0)
+        "schedule":60.0#(hour=9, minute=0)
     },
 }
 

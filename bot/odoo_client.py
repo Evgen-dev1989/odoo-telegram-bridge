@@ -30,19 +30,19 @@ def _check_stock_in_odoo(sku: str) -> dict:
         
         products = models.execute_kw(
             ODOO_DB, uid, ODOO_PASSWORD,
-            'product.product', 'search_read',
+            'product.template', 'search_read', 
             [[['default_code', '=', sku]]],
             {
                 'fields': [
                     'display_name', 
-                    'qty_available',      
+                    'qty_available',     
                     'outgoing_qty',       
-                    'virtual_available'  
+                    'virtual_available'   
                 ], 
                 'limit': 1
             }
         )
-        
+
         if not products:
             return {"status": "not_found"}
         
@@ -55,6 +55,7 @@ def _check_stock_in_odoo(sku: str) -> dict:
             "reserved": product['outgoing_qty'],
             "forecasted": product['virtual_available']
         }
+        
     except Exception as e:
         logging.error(f"Odoo Error: {e}")
         return {"status": "error", "message": str(e)}

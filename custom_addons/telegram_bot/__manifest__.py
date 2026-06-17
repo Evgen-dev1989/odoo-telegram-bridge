@@ -15,3 +15,6 @@
 
 #python odoo/odoo-bin -c odoo.conf -d odoo_test_db -i telegram_bot
 
+#celery -A bot.celery_app worker --loglevel=info -P solo
+#celery -A bot.celery_app beat --loglevel=info
+

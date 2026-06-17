@@ -6,14 +6,20 @@ import asyncio
 from celery import Celery
 from celery.schedules import crontab
 from aiogram import Bot
+from dotenv import dotenv_values
 
-ODOO_URL = str(os.getenv("ODOO_URL", "http://127.0.0.1:8069")).replace('"', '').strip()
-ODOO_DB = str(os.getenv("ODOO_DB", "odoo_test_db")).replace('"', '').strip()
-ODOO_USER = str(os.getenv("ODOO_USER", "admin")).replace('"', '').strip()
-ODOO_PASSWORD = str(os.getenv("ODOO_PASSWORD", "admin")).replace('"', '').strip()
+base_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(base_dir, ".env")
+config = dotenv_values(env_path)
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
+
+TELEGRAM_TOKEN = config.get("BOT_TOKEN") or os.getenv("BOT_TOKEN")
+ADMIN_CHAT_ID = config.get("admin_id") or os.getenv("admin_id")
+
+ODOO_URL = str(config.get("ODOO_URL") or os.getenv("ODOO_URL", "http://127.0.0.1:8069")).replace('"', '').strip()
+ODOO_DB = str(config.get("ODOO_DB") or os.getenv("ODOO_DB", "odoo_test_db")).replace('"', '').strip()
+ODOO_USER = str(config.get("ODOO_USER") or os.getenv("ODOO_USER", "admin")).replace('"', '').strip()
+ODOO_PASSWORD = str(config.get("ODOO_PASSWORD") or os.getenv("ODOO_PASSWORD", "admin")).replace('"', '').strip()
 
 REDIS_URL = "redis://127.0.0.1:6379/0" 
 

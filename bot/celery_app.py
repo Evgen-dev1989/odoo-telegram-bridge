@@ -96,6 +96,6 @@ def check_stock_limits_task():
 app.conf.beat_schedule = {
     "check-stock-every-minute": {
         "task": "check_stock_limits_task", 
-        "schedule": 60.0,  
+        "schedule": crontab(hour=9, minute=0),
     },
 }
